@@ -6,11 +6,36 @@ import pandas as pd
 import torch
 
 st.set_page_config(
-    page_title="¿Que estoy viendo?",
+    page_title="¿Qué estoy viendo?",
     page_icon="🔍",
     layout="wide"
 )
 
+# 🎨 ESTILOS PERSONALIZADOS
+st.markdown("""
+<style>
+.stApp {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+}
+
+h1, h2, h3 {
+    color: #38bdf8;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #020617;
+    border-right: 1px solid #1e293b;
+}
+
+.block-container {
+    padding: 2rem;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# 🤖 CARGA DEL MODELO
 @st.cache_resource
 def load_model():
     try:
@@ -21,34 +46,42 @@ def load_model():
         st.error(f"❌ Error al cargar el modelo: {str(e)}")
         return None
 
-st.title("🔍 ¿Que estoy viendo?")
-st.markdown("Captura una imagen y dejame adivinar qué estoy viendo.")
+# 🧠 HEADER
+st.markdown("""
+<h1 style='text-align: center;'>🔍 ¿Qué estoy viendo?</h1>
+<p style='text-align: center; font-size:18px;'>
+Captura una imagen y detecto objetos en tiempo real con IA
+</p>
+""", unsafe_allow_html=True)
 
-with st.spinner("Cargando modelo YOLOv5..."):
+with st.spinner("🚀 Cargando modelo YOLO..."):
     model = load_model()
 
+# ⚙️ SIDEBAR
 if model:
     with st.sidebar:
-        st.title("Parámetros")
-        st.subheader("Configuración de detección")
-        conf_threshold = st.slider("Confianza mínima", 0.0, 1.0, 0.25, 0.01)
-        iou_threshold  = st.slider("Umbral IoU", 0.0, 1.0, 0.45, 0.01)
-        max_det        = st.number_input("Detecciones máximas", 10, 2000, 1000, 10)
+        st.markdown("## ⚙️ Configuración")
+        st.markdown("---")
 
-    picture = st.camera_input("Capturar imagen", key="camera")
+        conf_threshold = st.slider("🎯 Confianza mínima", 0.0, 1.0, 0.25, 0.01)
+        iou_threshold  = st.slider("📦 Umbral IoU", 0.0, 1.0, 0.45, 0.01)
+        max_det        = st.number_input("🔢 Máx detecciones", 10, 2000, 1000, 10)
+
+        st.markdown("---")
+        st.info("💡 Ajusta los parámetros para mejorar la detección.")
+
+    # 📸 CAPTURA
+    with st.container():
+        st.markdown("### 📸 Captura tu imagen")
+        picture = st.camera_input("Toma una foto", key="camera")
 
     if picture:
         bytes_data = picture.getvalue()
 
-        # Decodificar con Pillow en lugar de cv2 (evita dependencia libGL)
-        #pil_img  = Image.open(io.BytesIO(bytes_data)).convert("RGB")
-        #np_img   = np.array(pil_img)   # array RGB
-
         pil_img = Image.open(io.BytesIO(bytes_data)).convert("RGB")
-        np_img  = np.array(pil_img)[..., ::-1]  # RGB → BGR para que YOLO procese bien
+        np_img  = np.array(pil_img)[..., ::-1]
 
-        
-        with st.spinner("Detectando objetos..."):
+        with st.spinner("🧠 Analizando imagen con IA..."):
             try:
                 results = model(
                     np_img,
@@ -60,19 +93,24 @@ if model:
                 st.error(f"Error durante la detección: {str(e)}")
                 st.stop()
 
+        st.success("✅ Detección completada")
+
         result    = results[0]
         boxes     = result.boxes
-        annotated = result.plot()              # devuelve BGR numpy array
-        annotated_rgb = annotated[:, :, ::-1]  # BGR → RGB sin cv2
+        annotated = result.plot()
+        annotated_rgb = annotated[:, :, ::-1]
 
         col1, col2 = st.columns(2)
 
+        # 🖼️ IMAGEN
         with col1:
-            st.subheader("Imagen con detecciones")
+            st.markdown("### 🖼️ Resultado")
             st.image(annotated_rgb, use_container_width=True)
 
+        # 📊 RESULTADOS
         with col2:
-            st.subheader("Objetos detectados")
+            st.markdown("### 📊 Objetos detectados")
+
             if boxes is not None and len(boxes) > 0:
                 label_names    = model.names
                 category_count = {}
@@ -81,27 +119,56 @@ if model:
                 for box in boxes:
                     cat  = int(box.cls.item())
                     conf = float(box.conf.item())
+
                     category_count[cat] = category_count.get(cat, 0) + 1
                     category_conf.setdefault(cat, []).append(conf)
 
                 data = [
                     {
-                        "Categoría":          label_names[cat],
-                        "Cantidad":           count,
+                        "Categoría": label_names[cat],
+                        "Cantidad": count,
                         "Confianza promedio": f"{np.mean(category_conf[cat]):.2f}"
                     }
                     for cat, count in category_count.items()
                 ]
 
                 df = pd.DataFrame(data)
-                st.dataframe(df, use_container_width=True)
-                st.bar_chart(df.set_index("Categoría")["Cantidad"])
+
+                # 🎯 TARJETAS VISUALES
+                for row in data:
+                    st.markdown(f"""
+                    <div style="
+                        background-color:#1e293b;
+                        padding:15px;
+                        border-radius:10px;
+                        margin-bottom:10px;
+                        border-left:5px solid #38bdf8;
+                    ">
+                        <b>{row['Categoría']}</b><br>
+                        Cantidad: {row['Cantidad']}<br>
+                        Confianza promedio: {row['Confianza promedio']}
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                # 📈 GRÁFICA
+                st.markdown("### 📈 Distribución")
+                st.bar_chart(
+                    df.set_index("Categoría")["Cantidad"],
+                    use_container_width=True
+                )
+
             else:
-                st.info("No se detectaron objetos con los parámetros actuales.")
-                st.caption("Prueba a reducir el umbral de confianza en la barra lateral.")
+                st.warning("⚠️ No se detectaron objetos.")
+                st.caption("Prueba bajando el umbral de confianza.")
+
 else:
-    st.error("No se pudo cargar el modelo. Verifica las dependencias e inténtalo nuevamente.")
+    st.error("❌ No se pudo cargar el modelo.")
     st.stop()
 
-st.markdown("---")
-st.caption("**Acerca de la aplicación**: Detección de objetos con YOLOv5 + Streamlit + PyTorch.")
+# 🧾 FOOTER
+st.markdown("""
+<hr>
+<p style='text-align:center; font-size:14px; color:gray;'>
+Hecho con ❤️ usando YOLOv5 + Streamlit + PyTorch
+</p>
+""", unsafe_allow_html=True)
