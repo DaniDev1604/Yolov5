@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 
 st.set_page_config(
-    page_title="Detección de Objetos en Tiempo Real",
+    page_title="¿Que estoy viendo?",
     page_icon="🔍",
     layout="wide"
 )
@@ -21,8 +21,8 @@ def load_model():
         st.error(f"❌ Error al cargar el modelo: {str(e)}")
         return None
 
-st.title("🔍 Detección de Objetos en Imágenes")
-st.markdown("Esta aplicación utiliza YOLOv5 para detectar objetos en imágenes capturadas con tu cámara.")
+st.title("🔍 ¿Que estoy viendo?")
+st.markdown("Captura una imagen y dejame adivinar qué estoy viendo.")
 
 with st.spinner("Cargando modelo YOLOv5..."):
     model = load_model()
